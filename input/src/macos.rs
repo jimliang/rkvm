@@ -1,4 +1,4 @@
-mod native;
+pub(crate) mod native;
 mod event;
 mod event_manager;
 mod event_writer;
