@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 fn main() {
     match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
-        "windows" => return,
+        "windows" | "macos" => return,
         "linux" => {}
         _ => panic!("Unsupported target OS"),
     }
