@@ -1,9 +1,10 @@
-use crate::Event;
+use crate::{Button, Direction, Event, Key, KeyKind};
 use cocoa::{
     base::{id, nil},
     foundation::NSAutoreleasePool,
 };
-use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventType};
+use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventType, EventField};
+use std::convert::TryInto;
 use std::io::{Error, ErrorKind};
 use std::os::raw::c_void;
 
@@ -44,18 +45,12 @@ unsafe extern "C" fn raw_callback(
     cg_event: CGEventRef,
     _user_info: *mut c_void,
 ) -> CGEventRef {
-    // println!("Event ref {:?}", cg_event_ptr);
-    // let cg_event: CGEvent = transmute_copy::<*mut c_void, CGEvent>(&cg_event_ptr);
-    // let opt = KEYBOARD_STATE.lock();
-    // if let Ok(mut keyboard) = opt {
-    //     if let Some(event) = convert(_type, &cg_event, &mut keyboard) {
-    //         if let Some(callback) = &mut GLOBAL_CALLBACK {
-    //             callback(event);
-    //         }
-    //     }
-    // }
-    // println!("Event ref END {:?}", cg_event_ptr);
-    // cg_event_ptr
+    // println!("raaw {:?}", _type);
+    if let Some(event) = convert(_type, &cg_event) {
+        if let Some(callback) = &mut GLOBAL_CALLBACK {
+            callback(event);
+        }
+    }
     cg_event
 }
 
@@ -75,6 +70,7 @@ where
             raw_callback,
             nil,
         );
+        println!("tap {:?}", tap);
         if tap.is_null() {
             return Err(Error::new(ErrorKind::Other, "Create EventTap error"));
         }
@@ -88,6 +84,7 @@ where
 
         CGEventTapEnable(tap, true);
         CFRunLoopRun();
+        println!("loop");
     }
     Ok(())
 }
@@ -125,7 +122,53 @@ pub type QCallback = unsafe extern "C" fn(
 ) -> CGEventRef;
 
 pub unsafe fn convert(_type: CGEventType, cg_event: &CGEvent) -> Option<Event> {
-    unimplemented!();
+    match _type {
+        CGEventType::Null => return None,
+        CGEventType::LeftMouseDown => Some(Event::Key {
+            direction: Direction::Down,
+            kind: KeyKind::Button(Button::Left),
+        }),
+        CGEventType::LeftMouseUp => Some(Event::Key {
+            direction: Direction::Up,
+            kind: KeyKind::Button(Button::Left),
+        }),
+        CGEventType::RightMouseDown => Some(Event::Key {
+            direction: Direction::Down,
+            kind: KeyKind::Button(Button::Right),
+        }),
+        CGEventType::RightMouseUp => Some(Event::Key {
+            direction: Direction::Up,
+            kind: KeyKind::Button(Button::Right),
+        }),
+        CGEventType::MouseMoved => {
+            // Event::MouseMove
+            None
+        }
+        // CGEventType::LeftMouseDragged => todo!(),
+        // CGEventType::RightMouseDragged => todo!(),
+        CGEventType::KeyDown => {
+            let code = cg_event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE);
+            if let Some(key) = Key::from_raw(code.try_into().ok()?) {
+                Some(Event::Key {
+                    direction: Direction::Down,
+                    kind: KeyKind::Key(key),
+                })
+            } else {
+                None
+            }
+        }
+        // CGEventType::KeyUp => todo!(),
+        // CGEventType::FlagsChanged => todo!(),
+        // CGEventType::ScrollWheel => todo!(),
+        // CGEventType::TabletPointer => todo!(),
+        // CGEventType::TabletProximity => todo!(),
+        // CGEventType::OtherMouseDown => todo!(),
+        // CGEventType::OtherMouseUp => todo!(),
+        // CGEventType::OtherMouseDragged => todo!(),
+        // CGEventType::TapDisabledByTimeout => todo!(),
+        // CGEventType::TapDisabledByUserInput => todo!(),
+        _ => None,
+    }
     // let option_type = match _type {
     //     CGEventType::LeftMouseDown => Some(EventType::ButtonPress(Button::Left)),
     //     CGEventType::LeftMouseUp => Some(EventType::ButtonRelease(Button::Left)),
@@ -183,7 +226,6 @@ pub unsafe fn convert(_type: CGEventType, cg_event: &CGEvent) -> Option<Event> {
     //         name,
     //     });
     // }
-    None
 }
 
 pub mod keycode {

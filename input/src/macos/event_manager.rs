@@ -1,7 +1,9 @@
 use tokio::sync::{mpsc::{self, UnboundedReceiver}, oneshot::{self, Receiver}};
 
 use crate::{EventWriter, event::Event};
-use std::io::{Error, ErrorKind};
+use std::{io::{Error, ErrorKind}, thread};
+
+use super::native::listen;
 
 pub struct EventManager {
     writer: EventWriter,
@@ -15,6 +17,15 @@ impl EventManager {
         let (watcher_sender, watcher_receiver) = oneshot::channel();
 
         let writer = EventWriter::new().await?;
+
+        thread::spawn(|| {
+            if let Err(err) = listen(move |event| {
+                event_sender.send(Ok(event)).unwrap();
+            }) {
+                panic!("listen error {:?}", err);
+            }
+        });
+        
         Ok(EventManager {
             writer,
             event_receiver,

@@ -5,7 +5,7 @@ use crate::event::Key;
 use crate::macos::native::keycode::*;
 
 macro_rules! decl_keycodes {
-    ($($key:ident, $code:literal),*) => {
+    ($($key:ident, $code:ident),*) => {
 
         impl Key {
             pub fn to_raw(&self) -> Option<CGKeyCode> {
@@ -49,5 +49,5 @@ decl_keycodes! {
     F7, F7,
     F8, F8,
     F9, F9,
-
+    A, KEY_A
 }
